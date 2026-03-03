@@ -117,8 +117,8 @@ pub const AstNode = union(enum) {
 
     fn formatIndented(self: AstNode, writer: *std.io.Writer, indent: usize) !void {
         switch (self) {
-            .root => |n| {
-                for (n.nodes) |node| {
+            .root => |nodes| {
+                for (nodes) |node| {
                     try node.formatIndented(writer, indent);
                     try writer.writeByte('\n');
                 }
