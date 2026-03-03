@@ -31,6 +31,7 @@ comptime_float_ptr: *Type,
 
 f32_ptr: *Type,
 f64_ptr: *Type,
+f80_ptr: *Type,
 f128_ptr: *Type,
 
 int_ptrs: std.AutoHashMap(Type.Primitive.Int, *Type),
@@ -45,6 +46,7 @@ pub fn init(alloc: std.mem.Allocator) !TypeTable {
         .comptime_float_ptr = try Type.create(alloc, .{ .primitive = .comptime_float }),
         .f32_ptr = try Type.create(alloc, .{ .primitive = .f32 }),
         .f64_ptr = try Type.create(alloc, .{ .primitive = .f64 }),
+        .f80_ptr = try Type.create(alloc, .{ .primitive = .f80 }),
         .f128_ptr = try Type.create(alloc, .{ .primitive = .f128 }),
         .int_ptrs = std.AutoHashMap(Type.Primitive.Int, *Type).init(alloc),
         .fn_ptrs = std.HashMap(Type.Function, *Type, FnHashContext, 80).init(alloc),
@@ -75,6 +77,7 @@ fn getPrimitive(self: *TypeTable, key: Type.Primitive) *Type {
         .comptime_float => return self.comptime_float_ptr,
         .f32 => return self.f32_ptr,
         .f64 => return self.f64_ptr,
+        .f80 => return self.f80_ptr,
         .f128 => return self.f128_ptr,
         // todo : unreachable might be a bit dangerous here,
         //  but all integer primitives are defined if they are
@@ -89,6 +92,18 @@ fn getFn(self: *TypeTable, key: Type.Function) !*Type {
     ty.* = .{ .function = key };
     try self.fn_ptrs.put(key, ty);
     return ty;
+}
+
+pub fn primitiveFromName(self: *TypeTable, name: []const u8) ?*Type {
+    if (std.mem.eql(u8, name, "void")) return self.void_ptr;
+    if (std.mem.eql(u8, name, "bool")) return self.bool_ptr;
+    if (std.mem.eql(u8, name, "f32")) return self.f32_ptr;
+    if (std.mem.eql(u8, name, "f64")) return self.f64_ptr;
+    if (std.mem.eql(u8, name, "f80")) return self.f80_ptr;
+    if (std.mem.eql(u8, name, "f128")) return self.f128_ptr;
+
+    const key = Type.Primitive.Int.fromName(name) orelse return null;
+    return self.get(key);
 }
 
 // pub fn format(self: TypeTable, writer: *std.Io.Writer) std.Io.Writer.Error!void {

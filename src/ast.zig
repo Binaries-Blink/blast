@@ -1,6 +1,7 @@
 const std = @import("std");
 const Operator = @import("operator.zig");
 const Type = @import("type/type.zig").Type;
+const TypeTable = @import("type/table.zig").TypeTable;
 
 pub const AstNode = union(enum) {
     /// the root of the file, contains all top level nodes
@@ -20,6 +21,8 @@ pub const AstNode = union(enum) {
     type: TypeExpr,
     /// any expression / a thing that can be evaluated
     expr: Expr,
+
+    const Self = @This();
 
     pub const ConstStmt = struct {
         name: []const u8,

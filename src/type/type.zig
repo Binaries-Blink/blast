@@ -19,6 +19,7 @@ pub const Type = union(enum) {
         int: Int,
         f32,
         f64,
+        f80,
         f128,
 
         pub const Int = struct {
