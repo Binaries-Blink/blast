@@ -18,7 +18,7 @@ pub const AstNode = union(enum) {
     /// a function parameter
     param: Param,
     /// some type
-    type: TypeExpr,
+    ty_expr: TypeExpr,
     /// any expression / a thing that can be evaluated
     expr: Expr,
 
@@ -101,7 +101,7 @@ pub const AstNode = union(enum) {
 
     pub const Param = struct {
         name: []const u8,
-        type: *AstNode,
+        type_expr: *AstNode,
     };
 
     pub const TypeExpr = struct {

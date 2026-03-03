@@ -124,7 +124,7 @@ fn readTypeExpr(alloc: std.mem.Allocator, node: *AstNode.TypeExpr) !*Type {
 
 fn readConst(alloc: std.mem.Allocator, node: *AstNode.ConstStmt) !*Type {
     if (node.type_expr) |ty| {
-        return try readTypeExpr(alloc, ty.type);
+        return try readTypeExpr(alloc, ty.ty_expr);
     }
     return try Type.create(alloc, .{ .unresolved = .Unknown });
 }
@@ -134,12 +134,12 @@ fn readFn(alloc: std.mem.Allocator, node: *AstNode.FnStmt) !*Type {
     var param_types = try alloc.alloc(*Type, params.len);
     for (params, 0..) |param, i| {
         param_types[i] = try Type.create(alloc,
-            try readTypeExpr(alloc, param.param.type.type)
+            try readTypeExpr(alloc, param.param.type_expr.ty_expr)
         );
     }
 
     const ret_ty = try Type.create(alloc,
-        try readTypeExpr(alloc, node.ret.type)
+        try readTypeExpr(alloc, node.ret.ty_expr)
     );
 
     return Type {
