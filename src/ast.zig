@@ -199,6 +199,12 @@ pub const AstNode = union(enum) {
         }
     }
 
+    pub fn create(alloc: std.mem.Allocator, node: AstNode) !*AstNode {
+        const ptr = try alloc.create(AstNode);
+        ptr.* = node;
+        return ptr;
+    }
+
     pub fn format(self: AstNode, writer: *std.io.Writer) !void {
         try self.formatIndented(writer, 0);
     }
