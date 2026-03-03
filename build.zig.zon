@@ -1,0 +1,14 @@
+.{
+    .name = .blast,
+    .version = "0.0.0",
+    .fingerprint = 0x4e4fa58c0b33b602,
+    .minimum_zig_version = "0.15.2",
+    .dependencies = .{},
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+        "LICENSE",
+        "README.md",
+    },
+}
