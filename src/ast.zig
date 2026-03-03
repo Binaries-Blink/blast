@@ -106,7 +106,7 @@ pub const AstNode = union(enum) {
 
     pub const TypeExpr = struct {
         name: []const u8,
-        nullable: bool,
+        nullable: bool = false,
     };
 
     fn writeIndent(writer: *std.io.Writer, i: usize) !void {
