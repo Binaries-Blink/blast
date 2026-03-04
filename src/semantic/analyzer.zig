@@ -49,9 +49,7 @@ pub fn analyze(self: *Self, node: *AstNode) !void {
 /// analyse the top level nodes, building context
 /// which will then be used for the full pass later on
 fn analyseTop(self: *Self, node: *AstNode) !void {
-    const ty = try Type.create(self.alloc,
-        try readNodeType(self.alloc, node)
-    );
+    const ty = try readNodeType(self.alloc, node);
     var name: []const u8 = undefined;
     const kind = switch (node.*) {
         .@"const" => |n| blk: {
