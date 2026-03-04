@@ -136,9 +136,7 @@ fn readFn(alloc: std.mem.Allocator, node: AstNode.FnStmt) !*Type {
         param_types[i] = try readTypeExpr(alloc, param.param.type_expr.ty_expr);
     }
 
-    const ret_ty = try Type.create(alloc,
-        try readTypeExpr(alloc, node.ret.ty_expr)
-    );
+    const ret_ty = try readTypeExpr(alloc, node.ret.ty_expr);
 
     return Type {
         .function = .{
