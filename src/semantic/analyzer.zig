@@ -16,7 +16,7 @@ stack: std.ArrayList(*Scope),
 
 const Self = @This();
 
-pub fn init(alloc: std.mem.Allocator) Self {
+pub fn init(alloc: std.mem.Allocator) !Self {
     const global = try alloc.create(Scope);
     global.* = Scope {
         .parent = null,
