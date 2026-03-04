@@ -87,7 +87,7 @@ fn analyzeFull(self: *Self, node: *AstNode) !void {
             var sym = self.global.get(n.name) orelse return error.UnknownSymbol;
             sym.ty = try self.resolveType(sym.ty);
 
-            self.analyzeFull(n.body);
+            try self.analyzeFull(n.body);
         },
         else => |n| {
             std.debug.print("{s}", .{@tagName(n)});
