@@ -145,7 +145,7 @@ pub const AstNode = union(enum) {
             },
             .@"fn" => |n| {
                 try writeIndent(writer, indent);
-                try writer.print("{s} :: fn(", n.name);
+                try writer.print("{s} :: fn(", .{n.name});
                 for (n.params, 0..) |param, i| {
                     try writer.print("{f}", .{param});
                     if (i != n.params.len - 1) {
@@ -172,7 +172,7 @@ pub const AstNode = union(enum) {
                     .call => |c| {
                         try writer.print("{s}(", .{c.name});
                         for (c.args, 0..) |arg, i| {
-                            try writer.print("{f}", arg);
+                            try writer.print("{f}", .{arg});
                             if (i != c.args.len - 1) {
                                 try writer.print(", ", .{});
                             }
