@@ -103,7 +103,7 @@ fn readNodeType(alloc: std.mem.Allocator, node: *AstNode) !*Type {
     return switch (node.*) {
         .@"const" => |n| try readConst(alloc, n),
         .@"fn" => |n| try readFn(alloc, n),
-        else => try Type.create(alloc, .{.primitive = void}),
+        else => try Type.create(alloc, .{.primitive = .void}),
     };
 }
 
