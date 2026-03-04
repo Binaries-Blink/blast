@@ -138,12 +138,12 @@ fn readFn(alloc: std.mem.Allocator, node: AstNode.FnStmt) !*Type {
 
     const ret_ty = try readTypeExpr(alloc, node.ret.ty_expr);
 
-    return Type {
+    return Type.create(alloc, .{
         .function = .{
             .@"return" = ret_ty,
             .params = param_types,
         }
-    };
+    });
 }
 
 /// resolve a type pointer to its canonical pointer via the table
