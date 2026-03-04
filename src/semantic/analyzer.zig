@@ -100,7 +100,7 @@ fn analyzeFull(self: *Self, node: *AstNode) !void {
 
 /// read the type of some node, returning some partial context which can be canonicalized later
 fn readNodeType(alloc: std.mem.Allocator, node: *AstNode) !*Type {
-    return switch (node) {
+    return switch (node.*) {
         .@"const" => |n| try readConst(alloc, n),
         .@"fn" => |n| try readFn(alloc, n),
         else => try Type.create(alloc, .{.primitive = void}),
