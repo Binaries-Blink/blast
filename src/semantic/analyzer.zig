@@ -192,6 +192,5 @@ fn inferExprType(self: *Self, expr: *AstNode.Expr) !*Type {
         .block => error.todo,
         .call => error.todo,
         .@"if" => error.todo,
-        else => error.NotImplemented,
     };
 }
