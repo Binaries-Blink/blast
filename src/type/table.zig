@@ -106,27 +106,28 @@ pub fn primitiveFromName(self: *TypeTable, name: []const u8) ?*Type {
     return self.get(key);
 }
 
-// pub fn format(self: TypeTable, writer: *std.Io.Writer) std.Io.Writer.Error!void {
-//     try writer.print("~~ Primitives:\n", .{});
-//     try writer.print("  {*} -> {f}\n", .{self.void_ptr, self.void_ptr.*});
-//     try writer.print("  {*} -> {f}\n", .{self.bool_ptr, self.bool_ptr.*});
-//     try writer.print("  {*} -> {f}\n", .{self.comptime_int_ptr, self.comptime_int_ptr.*});
-//     try writer.print("  {*} -> {f}\n", .{self.comptime_float_ptr, self.comptime_float_ptr.*});
-//     try writer.print("  {*} -> {f}\n", .{self.f32_ptr, self.f32_ptr.*});
-//     try writer.print("  {*} -> {f}\n", .{self.f64_ptr, self.f64_ptr.*});
-//     try writer.print("  {*} -> {f}\n", .{self.f128_ptr, self.f128_ptr.*});
-//
-//     // int types
-//     try writer.print("~~ Ints:\n", .{});
-//     var int_iter = self.int_ptrs.iterator();
-//     while (int_iter.next()) |e| {
-//         try writer.print("  {*} -> {f}\n", .{e.value_ptr.*, e.value_ptr.*.*});
-//     }
-//
-//     // function types
-//     try writer.print("~~ Functions:\n", .{});
-//     var fn_iter = self.fn_ptrs.iterator();
-//     while (fn_iter.next()) |e| {
-//         try writer.print("  {*} -> {f}\n", .{e.value_ptr.*, e.value_ptr.*.*});
-//     }
-// }
+pub fn format(self: TypeTable, writer: *std.Io.Writer) std.Io.Writer.Error!void {
+    try writer.print("~~ Primitives:\n", .{});
+    try writer.print("  {*} -> {f}\n", .{self.void_ptr, self.void_ptr.*});
+    try writer.print("  {*} -> {f}\n", .{self.bool_ptr, self.bool_ptr.*});
+    try writer.print("  {*} -> {f}\n", .{self.comptime_int_ptr, self.comptime_int_ptr.*});
+    try writer.print("  {*} -> {f}\n", .{self.comptime_float_ptr, self.comptime_float_ptr.*});
+    try writer.print("  {*} -> {f}\n", .{self.f32_ptr, self.f32_ptr.*});
+    try writer.print("  {*} -> {f}\n", .{self.f64_ptr, self.f64_ptr.*});
+    try writer.print("  {*} -> {f}\n", .{self.f80_ptr, self.f80_ptr.*});
+    try writer.print("  {*} -> {f}\n", .{self.f128_ptr, self.f128_ptr.*});
+
+    // int types
+    try writer.print("~~ Ints:\n", .{});
+    var int_iter = self.int_ptrs.iterator();
+    while (int_iter.next()) |e| {
+        try writer.print("  {*} -> {f}\n", .{e.value_ptr.*, e.value_ptr.*.*});
+    }
+
+    // function types
+    try writer.print("~~ Functions:\n", .{});
+    var fn_iter = self.fn_ptrs.iterator();
+    while (fn_iter.next()) |e| {
+        try writer.print("  {*} -> {f}\n", .{e.value_ptr.*, e.value_ptr.*.*});
+    }
+}

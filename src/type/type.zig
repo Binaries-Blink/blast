@@ -86,33 +86,33 @@ pub const Type = union(enum) {
         return ptr;
     }
 
-    // pub fn format(self: Type, writer: *std.io.Writer) !void {
-    //     switch (self) {
-    //         .@"struct" => try writer.print("TODO : FORMAT STRUCT", .{}),
-    //         .function => |t| {
-    //             try writer.print("(", .{});
-    //             for (t.params, 0..) |param, i| {
-    //                 try writer.print("{f}", .{param});
-    //                 if (i != t.params.len - 1) {
-    //                     try writer.print(", ", .{});
-    //                 }
-    //             }
-    //             try writer.print(") {f}", .{t.@"return"});
-    //         },
-    //         .primitive => |t| {
-    //             if (t == .int) {
-    //                 switch (t.int.signed) {
-    //                     true => try writer.print("i{d}", .{t.int.bits}),
-    //                     false => try writer.print("u{d}", .{t.int.bits}),
-    //                 }
-    //                 return;
-    //             }
-    //             try writer.print("{s}", .{ @tagName(t) });
-    //         },
-    //         .optional => |t| try writer.print("Optional({f})", .{t.inner}),
-    //         .unresolved => |t| try writer.print("{f}", .{t}),
-    //     }
-    // }
+    pub fn format(self: Type, writer: *std.io.Writer) !void {
+        switch (self) {
+            .@"struct" => try writer.print("TODO : FORMAT STRUCT", .{}),
+            .function => |t| {
+                try writer.print("(", .{});
+                for (t.params, 0..) |param, i| {
+                    try writer.print("{f}", .{param});
+                    if (i != t.params.len - 1) {
+                        try writer.print(", ", .{});
+                    }
+                }
+                try writer.print(") {f}", .{t.@"return"});
+            },
+            .primitive => |t| {
+                if (t == .int) {
+                    switch (t.int.signed) {
+                        true => try writer.print("i{d}", .{t.int.bits}),
+                        false => try writer.print("u{d}", .{t.int.bits}),
+                    }
+                    return;
+                }
+                try writer.print("{s}", .{ @tagName(t) });
+            },
+            .optional => |t| try writer.print("Optional({f})", .{t.inner}),
+            .unresolved => |t| try writer.print("{f}", .{t}),
+        }
+    }
 
     pub fn isUnknown(ty: Type) bool {
         return switch (ty) {
