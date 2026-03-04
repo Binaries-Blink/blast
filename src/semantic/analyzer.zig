@@ -109,7 +109,7 @@ fn readNodeType(alloc: std.mem.Allocator, node: *AstNode) !*Type {
 
 /// returns a named type to be resolved later
 fn readName(alloc: std.mem.Allocator, name: []const u8) !*Type {
-    return try Type.create(alloc, .{.unresolved = .{ .named = name }});
+    return try Type.create(alloc, .{.unresolved = .{ .named = .{ .name = name }}});
 }
 
 fn readTypeExpr(alloc: std.mem.Allocator, node: AstNode.TypeExpr) !*Type {
