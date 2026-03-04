@@ -18,5 +18,5 @@ pub fn insert(self: *Scope, name: []const u8, symbol: Symbol) !void {
 
 /// return a pointer to some symbol if it is defined
 pub fn get(self: *Scope, name: []const u8) ?*Symbol {
-    self.symbols.getPtr(name);
+    return self.symbols.getPtr(name);
 }
