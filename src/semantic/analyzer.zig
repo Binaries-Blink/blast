@@ -101,8 +101,8 @@ fn analyzeFull(self: *Self, node: *AstNode) !void {
 /// read the type of some node, returning some partial context which can be canonicalized later
 fn readNodeType(alloc: std.mem.Allocator, node: *AstNode) !*Type {
     return switch (node.*) {
-        .@"const" => |*n| try readConst(alloc, n),
-        .@"fn" => |*n| try readFn(alloc, n),
+        .@"const" => |n| try readConst(alloc, n),
+        .@"fn" => |n| try readFn(alloc, n),
         else => try Type.create(alloc, .{.primitive = void}),
     };
 }
@@ -112,7 +112,7 @@ fn readName(alloc: std.mem.Allocator, name: []const u8) !*Type {
     return try Type.create(alloc, .{.unresolved = .{ .named = name }});
 }
 
-fn readTypeExpr(alloc: std.mem.Allocator, node: *AstNode.TypeExpr) !*Type {
+fn readTypeExpr(alloc: std.mem.Allocator, node: AstNode.TypeExpr) !*Type {
     if (node.nullable) {
         // it will be the responsibility of the
         // parser to separate the actual name from whatever
@@ -122,14 +122,14 @@ fn readTypeExpr(alloc: std.mem.Allocator, node: *AstNode.TypeExpr) !*Type {
     return try readName(alloc, node.name);
 }
 
-fn readConst(alloc: std.mem.Allocator, node: *AstNode.ConstStmt) !*Type {
+fn readConst(alloc: std.mem.Allocator, node: AstNode.ConstStmt) !*Type {
     if (node.type_expr) |ty| {
         return try readTypeExpr(alloc, ty.ty_expr);
     }
     return try Type.create(alloc, .{ .unresolved = .Unknown });
 }
 
-fn readFn(alloc: std.mem.Allocator, node: *AstNode.FnStmt) !*Type {
+fn readFn(alloc: std.mem.Allocator, node: AstNode.FnStmt) !*Type {
     const params = node.params;
     var param_types = try alloc.alloc(*Type, params.len);
     for (params, 0..) |param, i| {
