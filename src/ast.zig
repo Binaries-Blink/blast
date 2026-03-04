@@ -139,62 +139,51 @@ pub const AstNode = union(enum) {
                     try writer.print("let {s} = {f}", .{n.name, n.value});
                 }
             },
-            // .@"if" => |n| {
-            //     try writeIndent(writer, indent);
-            //     try writer.print("if ", .{});
-            //     try n.clause.formatIndented(writer, indent);
-            //     try writer.print(" then:\n", .{});
-            //
-            //     try n.then.formatIndented(writer, indent);
-            //
-            //     if (n.@"else") |else_block| {
-            //         try writer.writeByte('\n');
-            //         try writeIndent(writer, indent);
-            //         try writer.print("else:\n", .{});
-            //         try else_block.formatIndented(writer, indent);
-            //     }
-            // },
-            // .ret => |n| {
-            //     try writeIndent(writer, indent);
-            //     try writer.print("ret {f}", .{n.value});
-            // },
-            // .@"fn" => |n| try writer.print("{s} :: fn({f}) -> {f} {{\n{f}\n}}", .{n.name, n.params, n.ret, n.body}),
-            // .param => |n| try writer.print("{s}: {f}", .{n.name, n.type}),
-            // .type => |n| {
-            //     if (n.nullable) {
-            //         try writer.print("?", .{});
-            //     }
-            //     try writer.print("{s}", .{n.name});
-            // },
-            // .block => |n| {
-            //     for (n.statements, 0..) |stmt, i| {
-            //         if (i != 0) {
-            //             try writer.writeByte('\n');
-            //         }
-            //         try stmt.formatIndented(writer, indent + 1);
-            //     }
-            // },
-            // .literal => |n| {
-            //     try writeIndent(writer, indent);
-            //     try writer.print("{s}", .{n.val.raw});
-            // },
-            // .ident => |n| {
-            //     try writeIndent(writer, indent);
-            //     try writer.print("{s}", .{n.name.raw});
-            // },
-            // .call => |n| {
-            //     try writeIndent(writer, indent);
-            //     try writer.print("{s}(", .{n.name.raw});
-            //     for (n.args, 0..) |arg, i| {
-            //         try writer.print("{f}", .{arg});
-            //         if (i != n.args.len - 1) {
-            //             try writer.print(", ", .{});
-            //         }
-            //     }
-            //     try writer.print(")", .{});
-            // },
-            // .unary => |n| try writer.print("{s}({f})", .{@tagName(n.op.type), n.operand}),
-            // .binary => |n| try writer.print("{s}({f}, {f})", .{@tagName(n.op.type), n.left, n.right}),
+            .ret => |n| {
+                try writeIndent(writer, indent);
+                try writer.print("ret {f}", .{n.value});
+            },
+            .@"fn" => |n| {
+                try writeIndent(writer, indent);
+                try writer.print("{s} :: fn(", n.name);
+                for (n.params, 0..) |param, i| {
+                    try writer.print("{f}", .{param});
+                    if (i != n.params.len - 1) {
+                        try writer.print(", ", .{});
+                    }
+                    try writer.print(") -> {f} = ", .{n.ret});
+                    try writer.print("{f}", .{n.body});
+                }
+            },
+            .param => |n| {
+                try writeIndent(writer, indent);
+                try writer.print("{s}: {f}", .{n.name, n.type_expr});
+            },
+            .ty_expr => |n| {
+                if (n.nullable) try writer.print("?", .{});
+                try writer.print("{s}", .{n.name});
+            },
+            .expr => |e| {
+                try writeIndent(writer, indent);
+                switch(e) {
+                    .literal => |l| 
+                        try writer.print("{s} {s}", .{@tagName(l.kind), l.val}),
+                    .ident => |i| try writer.print("{s}", .{i.name}),
+                    .call => |c| {
+                        try writer.print("{s}(", .{c.name});
+                        for (c.args, 0..) |arg, i| {
+                            try writer.print("{f}", arg);
+                            if (i != c.args.len - 1) {
+                                try writer.print(", ", .{});
+                            }
+                        }
+                        try writer.print(")", .{});
+                    },
+                    .unary => |u| try writer.print("{s}({f})", .{@tagName(u.op), u.operand}),
+                    .binary => |b| try writer.print("{s}({f}, {f})", .{@tagName(b.op), b.left, b.right}),
+                    else => try writer.print("TODO : FORMAT {s} EXPR", .{@tagName(e)}),
+                }
+            },
             else => try writer.print("TODO: impl format for {s}", .{@tagName(self)}),
         }
     }
