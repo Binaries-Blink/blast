@@ -3,7 +3,7 @@ pub const Operator = enum(u8) {
     Assign,
     Arrow,
     Path,
-    Dot,
+    MemberAccess,
     Range,
     RangeInc,
     NullUnwrap,

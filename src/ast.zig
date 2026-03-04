@@ -1,5 +1,5 @@
 const std = @import("std");
-const Operator = @import("operator.zig");
+const Operator = @import("operator.zig").Operator;
 const Type = @import("type/type.zig").Type;
 const TypeTable = @import("type/table.zig").TypeTable;
 
