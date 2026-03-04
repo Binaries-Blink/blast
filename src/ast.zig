@@ -166,7 +166,7 @@ pub const AstNode = union(enum) {
             .expr => |e| {
                 try writeIndent(writer, indent);
                 switch(e) {
-                    .literal => |l| 
+                    .literal => |l|
                         try writer.print("{s} {s}", .{@tagName(l.kind), l.val}),
                     .ident => |i| try writer.print("{s}", .{i.name}),
                     .call => |c| {
@@ -184,7 +184,7 @@ pub const AstNode = union(enum) {
                     else => try writer.print("TODO : FORMAT {s} EXPR", .{@tagName(e)}),
                 }
             },
-            else => try writer.print("TODO: impl format for {s}", .{@tagName(self)}),
+            // else => try writer.print("TODO: impl format for {s}", .{@tagName(self)}),
         }
     }
 
