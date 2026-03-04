@@ -35,7 +35,7 @@ pub fn init(alloc: std.mem.Allocator) !Self {
 ///
 /// expects the given node to be a root node
 pub fn analyze(self: *Self, node: *AstNode) !void {
-    if (node != .root) return error.ExpectedRootNode;
+    if (node.* != .root) return error.ExpectedRootNode;
 
     for (node.root) |n| {
         self.analyseTop(n);
