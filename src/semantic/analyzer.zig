@@ -9,7 +9,7 @@ const Symbol = @import("../scope/symbol.zig").Symbol;
 pub const Analyzer = @This();
 
 alloc: std.mem.Allocator,
-table: *TypeTable,
+table: TypeTable,
 global: *Scope,
 /// a stack of scopes used for parent tracking during traversal
 stack: std.ArrayList(*Scope),
