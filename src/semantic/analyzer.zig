@@ -25,9 +25,9 @@ pub fn init(alloc: std.mem.Allocator) !Self {
 
     return .{
         .alloc = alloc,
-        .table = TypeTable.init(alloc),
+        .table = try TypeTable.init(alloc),
         .global = global,
-        .stack = std.ArrayList(*Scope).initCapacity(alloc, 1)
+        .stack = try std.ArrayList(*Scope).initCapacity(alloc, 1)
     };
 }
 
