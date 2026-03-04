@@ -117,7 +117,7 @@ fn readTypeExpr(alloc: std.mem.Allocator, node: AstNode.TypeExpr) !*Type {
         // it will be the responsibility of the
         // parser to separate the actual name from whatever
         // syntax specifies nullable types
-        return try Type.create(alloc, .{.optional = .{ .inner = readName(alloc, node.name) }});
+        return try Type.create(alloc, .{.optional = .{ .inner = try readName(alloc, node.name) }});
     }
     return try readName(alloc, node.name);
 }
