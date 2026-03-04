@@ -38,11 +38,11 @@ pub fn analyze(self: *Self, node: *AstNode) !void {
     if (node.* != .root) return error.ExpectedRootNode;
 
     for (node.root) |n| {
-        self.analyseTop(n);
+        try self.analyseTop(n);
     }
 
     for (node.root) |n| {
-        self.analyzeFull(n);
+        try self.analyzeFull(n);
     }
 }
 
