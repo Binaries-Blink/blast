@@ -7,6 +7,13 @@ pub const Scope = @This();
 parent: ?*Scope,
 symbols: std.StringHashMap(Symbol),
 
+pub fn init(alloc: std.mem.Allocator, parent: ?*Scope) Scope {
+    return .{
+        .parent = parent,
+        .symbols = .init(alloc),
+    };
+}
+
 /// insert some symbol into the map with the given name, will return an error on duplicate definitions
 // todo : perhaps we can do some name mangling later to allow duplicate definitions for variables
 pub fn insert(self: *Scope, name: []const u8, symbol: Symbol) !void {
@@ -14,6 +21,12 @@ pub fn insert(self: *Scope, name: []const u8, symbol: Symbol) !void {
     if (dup) |_| {
         return error.DuplicateDefinition;
     }
+}
+
+pub fn create(alloc: std.mem.Allocator, scope: Scope) *Scope {
+    const ptr = alloc.create(Scope);
+    ptr.* = scope;
+    return ptr;
 }
 
 /// return a pointer to some symbol if it is defined

@@ -31,6 +31,18 @@ pub fn init(alloc: std.mem.Allocator) !Self {
     };
 }
 
+/// push a new empty scope to the stack to serve as the new current scope
+fn enterScope(self: *Self) !void {
+    self.stack.append(self.alloc, Scope.create(self.alloc,
+        .init(self.alloc, self.stack.getLastOrNull())
+    ));
+}
+
+/// exit the current scope, popping it from the stack
+fn exitScope(self: *Self) ?*Scope {
+    return self.stack.pop();
+}
+
 /// run some semantic analysis over the given node.
 ///
 /// expects the given node to be a root node
@@ -88,6 +100,10 @@ fn analyzeFull(self: *Self, node: *AstNode) !void {
             sym.ty = try self.resolveType(sym.ty);
 
             try self.analyzeFull(n.body);
+        },
+        .expr => |_| {
+            // if block, enter the scope and analyse, else analyse the expr from global
+            return error.todo;
         },
         else => |n| {
             std.debug.print("{s}", .{@tagName(n)});

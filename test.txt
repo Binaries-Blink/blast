@@ -1,0 +1,13 @@
+fn $calc($n @u32) @u32 = {
+    ret Add(Add(n Mul(2 3)) 8);
+}
+
+fn $calc2($n @u32) @u32 = Add(Add(n Mul(2 3)) 8)
+
+let $x = $calc(5);
+
+// fn parser
+// ident -> '(' -> list(param) -> ')' -> return type -> '=' -> expr
+
+// let / const parser
+// ident -> ?(':' -> type expr) -> '=' -> expr -> ';'
