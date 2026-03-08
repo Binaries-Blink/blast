@@ -11,36 +11,62 @@ pub const Symbol = @import("scope/symbol.zig").Symbol;
 
 pub const Parser = @import("IR/Parser.zig");
 
-test "test" {
+test "semantic" {
     const std = @import("std");
-
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer _ = arena.deinit();
     const alloc = arena.allocator();
 
-    // read test code
-    std.debug.print("reading test file\n", .{});
-    const file = try std.fs.cwd().openFile("test.txt", .{});
-    defer file.close();
-    const size = (try file.stat()).size;
-    const content = try file.readToEndAlloc(alloc, size);
-    std.debug.print("read {d} bytes\n", .{size});
+    var root: [2] *AstNode = (try alloc.alloc(*AstNode, 2))[0..2].*;
+    root[0] = try AstNode.create(alloc, .{
+        .@"fn" = .{
+            .name = "double",
+            .params = @constCast(&[_]*AstNode {try AstNode.create(alloc,
+                .{
+                    .param = .{
+                        .name = "n",
+                    .type_expr = try AstNode.create(alloc, .{
+                        .ty_expr = .{ .name = "u32" }
+                    }),
+                }})}),
+            .ret = try AstNode.create(alloc, .{
+                .ty_expr = .{ .name = "u32" }
+            }),
+            .body = try AstNode.create(alloc, .{ .expr =
+                .{.binary = .{
+                    .op = .Add,
+                    .left = try AstNode.create(alloc, .{ .expr = .{ .ident = .{ .name = "n" }}}),
+                    .right = try AstNode.create(alloc, .{ .expr = .{ .ident = .{ .name = "n" }}}),
+                }}
+            })
+        }
+    });
+    root[1] = try AstNode.create(alloc, .{ .let = .{
+        .name = "x" ,
+        .type_expr = null,
+        .value = try AstNode.create(alloc, .{ .expr = .{
+            .call = .{
+                .name = "double",
+                .args = @constCast(&[1]*AstNode {try AstNode.create(alloc, .{ .expr = .{
+                    .literal = .{
+                        .kind = .numeric,
+                        .val = "5",
+                    }
+                }})}),
+            },
+        }})
+    }});
 
-    // parse it
-    std.debug.print("parsing text\n", .{});
-    var parser = Parser.init(alloc, content);
-    const root = try parser.Parse();
+    const testAst = try AstNode.create(alloc, .{ .root = @constCast(&root)});
+    std.debug.print("{f}\n", .{testAst.*});
 
-    // display ast
-    std.debug.print("{f}\n", .{root.*});
-    std.debug.print("parsing complete with {d} top level nodes\n", .{root.root.len});
+    var analyzer = try Analyzer.init(alloc);
+    try analyzer.analyze(testAst);
 
-    // semantic analysis
+    std.debug.print("{f}\n", .{analyzer.table});
 
-    // display type table
-
-    // optimize
-
-    // display optimized ast
-
+    var global = analyzer.global.*.symbols.iterator();
+    while (global.next()) |entry| {
+        std.debug.print("{s} : {f}", .{entry.key_ptr.*, entry.value_ptr.*.ty});
+    }
 }

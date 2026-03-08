@@ -86,8 +86,13 @@ fn parseIdent(self: *Self) Error![]const u8 {
     return self.src[start..end];
 }
 
+fn parseExpr(self: *Parser) Error!*AstNode {
+    self.skipWhitespace();
+}
+
 fn parseFn(self: *Self) Error!*AstNode {
     self.skipWhitespace();
+    // const name = self.parseIdent();
     return Error.UnexpectedToken;
 }
 
