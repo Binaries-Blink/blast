@@ -1,7 +1,0 @@
-fn $calc($n @u32) @u32 = {
-    ret Add(Add(n Mul(2 3)) 8);
-}
-
-fn $calc2($n @u32) @u32 = Add(Add(n,Mul(2,3)),8)
-
-let $x = $calc(5);
