@@ -101,9 +101,17 @@ fn analyzeFull(self: *Self, node: *AstNode) !void {
 
             try self.analyzeFull(n.body);
         },
-        .expr => |_| {
-            // if block, enter the scope and analyse, else analyse the expr from global
-            return error.todo;
+        // todo : we will need context on the current scope, the target
+        //  type of the expression (if one exists), and some other stuff
+        //  I cant think of right now.
+        .expr => |e| switch(e) {
+            .literal => return error.todo,
+            .ident => return error.todo,
+            .unary => return error.todo,
+            .binary => return error.todo,
+            .block => return error.todo,
+            .call => return error.todo,
+            .@"if" => return error.todo,
         },
         else => |n| {
             std.debug.print("{s}", .{@tagName(n)});
