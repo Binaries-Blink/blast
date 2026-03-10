@@ -11,10 +11,33 @@ pub const Analyzer = @This();
 alloc: std.mem.Allocator,
 table: TypeTable,
 global: *Scope,
-/// a stack of scopes used for parent tracking during traversal
-stack: std.ArrayList(*Scope),
 
 const Self = @This();
+
+/// context to be used during the second pass of semantic analysis
+const Ctx = struct {
+    /// the current scope
+    scope: *Scope,
+    /// expected return type of some enclosing function,
+    /// defaults to null for the top level.
+    ret_ty: ?*Type = null,
+    /// hint for what type is expected to be produced, null if unknown
+    expected_ty: ?*Type = null,
+};
+
+/// context produced when evaluating an expression
+const ExprRes = struct {
+    /// the type of this expression
+    ty: *Type,
+    /// false if an expression does not return
+    returns: bool = true,
+    /// true if the expression returns an lvalue
+    ///
+    /// idek if this will be useful,
+    /// but it seems cool so i might want
+    /// to support it just because.
+    lvalue: bool = false,
+};
 
 pub fn init(alloc: std.mem.Allocator) !Self {
     const global = try alloc.create(Scope);
@@ -27,20 +50,8 @@ pub fn init(alloc: std.mem.Allocator) !Self {
         .alloc = alloc,
         .table = try TypeTable.init(alloc),
         .global = global,
-        .stack = try std.ArrayList(*Scope).initCapacity(alloc, 1)
+        .scope_stack = try std.ArrayList(*Scope).initCapacity(alloc, 1)
     };
-}
-
-/// push a new empty scope to the stack to serve as the new current scope
-fn enterScope(self: *Self) !void {
-    self.stack.append(self.alloc, Scope.create(self.alloc,
-        .init(self.alloc, self.stack.getLastOrNull())
-    ));
-}
-
-/// exit the current scope, popping it from the stack
-fn exitScope(self: *Self) ?*Scope {
-    return self.stack.pop();
 }
 
 /// run some semantic analysis over the given node.
@@ -52,6 +63,8 @@ pub fn analyze(self: *Self, node: *AstNode) !void {
     for (node.root) |n| {
         try self.analyseTop(n);
     }
+
+    // todo : create initial analysis context
 
     for (node.root) |n| {
         try self.analyzeFull(n);
@@ -83,11 +96,15 @@ fn analyseTop(self: *Self, node: *AstNode) !void {
 }
 
 /// completely analyze the given node, traversing any and all contained scopes
-fn analyzeFull(self: *Self, node: *AstNode) !void {
+fn analyzeFull(self: *Self, node: *AstNode, ctx: Ctx) !void {
+    _ = ctx;
     switch (node.*) {
         .@"const" => |n| {
             var sym = self.global.get(n.name) orelse return error.UnknownSymbol;
 
+            // todo : properly resolve the type of the expression instead of just inferring
+            //  instead we will make a type hint, which has a value if a type expr is
+            //  given, else is null.
             if (sym.ty.isUnknown()) {
                 const inferred = try self.inferType(n.value);
                 sym.ty = inferred;
@@ -101,23 +118,30 @@ fn analyzeFull(self: *Self, node: *AstNode) !void {
 
             try self.analyzeFull(n.body);
         },
-        // todo : we will need context on the current scope, the target
-        //  type of the expression (if one exists), and some other stuff
-        //  I cant think of right now.
-        .expr => |e| switch(e) {
-            .literal => return error.todo,
-            .ident => return error.todo,
-            .unary => return error.todo,
-            .binary => return error.todo,
-            .block => return error.todo,
-            .call => return error.todo,
-            .@"if" => return error.todo,
-        },
+        // todo : when analyzing an expr,
+        //  build new context in the function that calls the analysis
+        .expr => |*e| self.analyzeExpr(e),
         else => |n| {
             std.debug.print("{s}", .{@tagName(n)});
             return error.TodoResolve;
         },
     }
+}
+
+/// performs full analysis of an expression node
+fn analyzeExpr(self: *Self, expr: *AstNode.Expr, ctx: Ctx) !ExprRes {
+    _ = self;
+    _ = ctx;
+    return switch(expr) {
+        // todo : specialize into functions made for each expr type
+        .literal => error.todo,
+        .ident => error.todo,
+        .unary => error.todo,
+        .binary => error.todo,
+        .block => error.todo,
+        .call => error.todo,
+        .@"if" => error.todo,
+    };
 }
 
 /// read the type of some node, returning some partial context which can be canonicalized later
