@@ -15,4 +15,5 @@ pub const SymbolKind = enum(u8) {
     function,
     variable,
     type,
+    parameter,
 };

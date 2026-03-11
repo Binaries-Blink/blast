@@ -4,6 +4,8 @@ const TypeTable = @import("../type/table.zig").TypeTable;
 const Type = @import("../type/type.zig").Type;
 const Scope = @import("../scope/scope.zig").Scope;
 const Symbol = @import("../scope/symbol.zig").Symbol;
+const readNodeType = @import("read.zig").readNodeType;
+const readTypeExpr = @import("read.zig").readTypeExpr;
 
 /// responsible for performing semantic analysis on the AST
 pub const Analyzer = @This();
@@ -30,12 +32,14 @@ const ExprRes = struct {
     /// the type of this expression
     ty: *Type,
     /// false if an expression does not return
+    ///
+    /// basically the same as `fn() -> !` in rust
     returns: bool = true,
     /// true if the expression returns an lvalue
     ///
-    /// idek if this will be useful,
-    /// but it seems cool so i might want
-    /// to support it just because.
+    /// will be useful for things like indexing
+    ///
+    /// `arr[i] = 0`
     lvalue: bool = false,
 };
 
@@ -50,7 +54,6 @@ pub fn init(alloc: std.mem.Allocator) !Self {
         .alloc = alloc,
         .table = try TypeTable.init(alloc),
         .global = global,
-        .scope_stack = try std.ArrayList(*Scope).initCapacity(alloc, 1)
     };
 }
 
@@ -64,10 +67,10 @@ pub fn analyze(self: *Self, node: *AstNode) !void {
         try self.analyseTop(n);
     }
 
-    // todo : create initial analysis context
+    const ctx = Ctx { .scope = self.global };
 
     for (node.root) |n| {
-        try self.analyzeFull(n);
+        try self.analyzeFull(n, ctx);
     }
 }
 
@@ -97,7 +100,6 @@ fn analyseTop(self: *Self, node: *AstNode) !void {
 
 /// completely analyze the given node, traversing any and all contained scopes
 fn analyzeFull(self: *Self, node: *AstNode, ctx: Ctx) !void {
-    _ = ctx;
     switch (node.*) {
         .@"const" => |n| {
             var sym = self.global.get(n.name) orelse return error.UnknownSymbol;
@@ -116,11 +118,34 @@ fn analyzeFull(self: *Self, node: *AstNode, ctx: Ctx) !void {
             var sym = self.global.get(n.name) orelse return error.UnknownSymbol;
             sym.ty = try self.resolveType(sym.ty);
 
-            try self.analyzeFull(n.body);
+            // right now we pass in the scope defined by the context,
+            // im hoping this should allow functions inside of blocks
+            var scope = try Scope.create(self.alloc, ctx.scope.*);
+            for (n.params) |param| {
+                const ty = try self.resolveType(
+                    try readTypeExpr(self.alloc, param.param.type_expr.ty_expr)
+                );
+                try scope.insert(param.param.name, Symbol {
+                    .kind = .parameter,
+                    .ty = ty,
+                    .node = param,
+                });
+            }
+
+            const ret_ty = sym.ty.function.@"return";
+
+            const body_ctx = Ctx {
+                .scope = scope,
+                .ret_ty = ret_ty,
+                .expected_ty = ret_ty,
+            };
+
+            const result = try self.analyzeExpr(&n.body.expr, body_ctx);
+            _ = result;
+
+            // todo : if result type can coerce into return type, were good,
+            //  else panic and freak out and lose your mind and crash and burn
         },
-        // todo : when analyzing an expr,
-        //  build new context in the function that calls the analysis
-        .expr => |*e| self.analyzeExpr(e),
         else => |n| {
             std.debug.print("{s}", .{@tagName(n)});
             return error.TodoResolve;
@@ -130,66 +155,66 @@ fn analyzeFull(self: *Self, node: *AstNode, ctx: Ctx) !void {
 
 /// performs full analysis of an expression node
 fn analyzeExpr(self: *Self, expr: *AstNode.Expr, ctx: Ctx) !ExprRes {
+    // todo : when analyzing an expr,
+    //  build new context in the function that calls the analysis
+    return switch(expr.*) {
+        .literal => |lit| self.analyzeLiteral(lit, ctx),
+        .ident   => |id|  self.analyzeIdent(id, ctx),
+        .unary   => |un|  self.analyzeUnary(un, ctx),
+        .binary  => |bi|  self.analyzeBinary(bi, ctx),
+        .block   => |blk| self.analyzeBlock(blk, ctx),
+        .call    => |ca|  self.analyzeCall(ca, ctx),
+        .@"if"   => |i|   self.analyzeIf(i, ctx),
+    };
+}
+
+fn analyzeLiteral(self: *Self, expr: AstNode.Expr.Literal, ctx: Ctx) !ExprRes {
     _ = self;
+    _ = expr;
     _ = ctx;
-    return switch(expr) {
-        // todo : specialize into functions made for each expr type
-        .literal => error.todo,
-        .ident => error.todo,
-        .unary => error.todo,
-        .binary => error.todo,
-        .block => error.todo,
-        .call => error.todo,
-        .@"if" => error.todo,
-    };
+    return error.todo;
 }
 
-/// read the type of some node, returning some partial context which can be canonicalized later
-fn readNodeType(alloc: std.mem.Allocator, node: *AstNode) !*Type {
-    return switch (node.*) {
-        .@"const" => |n| try readConst(alloc, n),
-        .@"fn" => |n| try readFn(alloc, n),
-        else => try Type.create(alloc, .{.primitive = .void}),
-    };
+fn analyzeIdent(self: *Self, expr: AstNode.Expr.Ident, ctx: Ctx) !ExprRes {
+    _ = self;
+    _ = expr;
+    _ = ctx;
+    return error.todo;
 }
 
-/// returns a named type to be resolved later
-fn readName(alloc: std.mem.Allocator, name: []const u8) !*Type {
-    return try Type.create(alloc, .{.unresolved = .{ .named = .{ .name = name }}});
+fn analyzeUnary(self: *Self, expr: AstNode.Expr.UnOp, ctx: Ctx) !ExprRes {
+    _ = self;
+    _ = expr;
+    _ = ctx;
+    return error.todo;
 }
 
-fn readTypeExpr(alloc: std.mem.Allocator, node: AstNode.TypeExpr) !*Type {
-    if (node.nullable) {
-        // it will be the responsibility of the
-        // parser to separate the actual name from whatever
-        // syntax specifies nullable types
-        return try Type.create(alloc, .{.optional = .{ .inner = try readName(alloc, node.name) }});
-    }
-    return try readName(alloc, node.name);
+fn analyzeBinary(self: *Self, expr: AstNode.Expr.BinOp, ctx: Ctx) !ExprRes {
+    _ = self;
+    _ = expr;
+    _ = ctx;
+    return error.todo;
 }
 
-fn readConst(alloc: std.mem.Allocator, node: AstNode.ConstStmt) !*Type {
-    if (node.type_expr) |ty| {
-        return try readTypeExpr(alloc, ty.ty_expr);
-    }
-    return try Type.create(alloc, .{ .unresolved = .Unknown });
+fn analyzeBlock(self: *Self, expr: AstNode.Expr.Block, ctx: Ctx) !ExprRes {
+    _ = self;
+    _ = expr;
+    _ = ctx;
+    return error.todo;
 }
 
-fn readFn(alloc: std.mem.Allocator, node: AstNode.FnStmt) !*Type {
-    const params = node.params;
-    var param_types = try alloc.alloc(*Type, params.len);
-    for (params, 0..) |param, i| {
-        param_types[i] = try readTypeExpr(alloc, param.param.type_expr.ty_expr);
-    }
+fn analyzeCall(self: *Self, expr: AstNode.Expr.FnCall, ctx: Ctx) !ExprRes {
+    _ = self;
+    _ = expr;
+    _ = ctx;
+    return error.todo;
+}
 
-    const ret_ty = try readTypeExpr(alloc, node.ret.ty_expr);
-
-    return Type.create(alloc, .{
-        .function = .{
-            .@"return" = ret_ty,
-            .params = param_types,
-        }
-    });
+fn analyzeIf(self: *Self, expr: AstNode.Expr.If, ctx: Ctx) !ExprRes {
+    _ = self;
+    _ = expr;
+    _ = ctx;
+    return error.todo;
 }
 
 /// resolve a type pointer to its canonical pointer via the table
@@ -221,6 +246,21 @@ fn resolveType(self: *Self, ty: *Type) !*Type {
         },
         else => return error.UnsupportedType,
     }
+}
+
+/// check if the type of `from` can be coerced into the type of `to`
+fn canCoerce(self: *Self, from: *Type, to: *Type) bool {
+    _ = self;
+    if (from == to) return true;
+    return false;
+}
+
+/// given two canonical types, determine which type they should coerce into,
+/// returns null on a type mismatch
+fn unifyTypes(self: *Self, a: *Type, b: *Type) ?*Type {
+    _ = self;
+    if (a == b) return a;
+    return null;
 }
 
 fn inferType(self: *Self, node: *AstNode) !*Type {

@@ -23,8 +23,8 @@ pub fn insert(self: *Scope, name: []const u8, symbol: Symbol) !void {
     }
 }
 
-pub fn create(alloc: std.mem.Allocator, scope: Scope) *Scope {
-    const ptr = alloc.create(Scope);
+pub fn create(alloc: std.mem.Allocator, scope: Scope) !*Scope {
+    const ptr = try alloc.create(Scope);
     ptr.* = scope;
     return ptr;
 }
