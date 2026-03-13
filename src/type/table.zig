@@ -26,8 +26,9 @@ alloc: std.mem.Allocator,
 
 void_ptr: *Type,
 bool_ptr: *Type,
-comptime_int_ptr: *Type,
-comptime_float_ptr: *Type,
+int_literal_ptr: *Type,
+float_literal_ptr: *Type,
+char_ptr: *Type,
 
 f32_ptr: *Type,
 f64_ptr: *Type,
@@ -42,8 +43,9 @@ pub fn init(alloc: std.mem.Allocator) !TypeTable {
         .alloc = alloc,
         .void_ptr = try Type.create(alloc, .{ .primitive = .void }),
         .bool_ptr = try Type.create(alloc, .{ .primitive = .bool }),
-        .comptime_int_ptr = try Type.create(alloc, .{ .primitive = .comptime_int }),
-        .comptime_float_ptr = try Type.create(alloc, .{ .primitive = .comptime_float }),
+        .int_literal_ptr = try Type.create(alloc, .{ .primitive = .int_literal }),
+        .float_literal_ptr = try Type.create(alloc, .{ .primitive = .float_literal }),
+        .char_ptr = try Type.create(alloc, .{ .primitive = .char }),
         .f32_ptr = try Type.create(alloc, .{ .primitive = .f32 }),
         .f64_ptr = try Type.create(alloc, .{ .primitive = .f64 }),
         .f80_ptr = try Type.create(alloc, .{ .primitive = .f80 }),
@@ -73,8 +75,9 @@ fn getPrimitive(self: *TypeTable, key: Type.Primitive) *Type {
     switch (key) {
         .void => return self.void_ptr,
         .bool => return self.bool_ptr,
-        .comptime_int => return self.comptime_int_ptr,
-        .comptime_float => return self.comptime_float_ptr,
+        .int_literal => return self.int_literal_ptr,
+        .float_literal => return self.float_literal_ptr,
+        .char => return self.char_ptr,
         .f32 => return self.f32_ptr,
         .f64 => return self.f64_ptr,
         .f80 => return self.f80_ptr,
@@ -97,6 +100,7 @@ fn getFn(self: *TypeTable, key: Type.Function) !*Type {
 pub fn primitiveFromName(self: *TypeTable, name: []const u8) ?*Type {
     if (std.mem.eql(u8, name, "void")) return self.void_ptr;
     if (std.mem.eql(u8, name, "bool")) return self.bool_ptr;
+    if (std.mem.eql(u8, name, "char")) return self.char_ptr;
     if (std.mem.eql(u8, name, "f32")) return self.f32_ptr;
     if (std.mem.eql(u8, name, "f64")) return self.f64_ptr;
     if (std.mem.eql(u8, name, "f80")) return self.f80_ptr;
@@ -110,8 +114,9 @@ pub fn format(self: TypeTable, writer: *std.Io.Writer) std.Io.Writer.Error!void 
     try writer.print("~~ Primitives:\n", .{});
     try writer.print("  {*} -> {f}\n", .{self.void_ptr, self.void_ptr.*});
     try writer.print("  {*} -> {f}\n", .{self.bool_ptr, self.bool_ptr.*});
-    try writer.print("  {*} -> {f}\n", .{self.comptime_int_ptr, self.comptime_int_ptr.*});
-    try writer.print("  {*} -> {f}\n", .{self.comptime_float_ptr, self.comptime_float_ptr.*});
+    try writer.print("  {*} -> {f}\n", .{self.int_literal_ptr, self.int_literal_ptr.*});
+    try writer.print("  {*} -> {f}\n", .{self.float_literal_ptr, self.float_literal_ptr.*});
+    try writer.print("  {*} -> {f}\n", .{self.char_ptr, self.char_ptr.*});
     try writer.print("  {*} -> {f}\n", .{self.f32_ptr, self.f32_ptr.*});
     try writer.print("  {*} -> {f}\n", .{self.f64_ptr, self.f64_ptr.*});
     try writer.print("  {*} -> {f}\n", .{self.f80_ptr, self.f80_ptr.*});

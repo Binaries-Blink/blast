@@ -12,10 +12,11 @@ pub const Type = union(enum) {
         bool,
         /// integer literals, can be coerced into any integer type,
         /// assuming the target can store the value
-        comptime_int,
+        int_literal,
         /// floating point literals, can be coerced into any float type,
         /// assuming the target can store the value
-        comptime_float,
+        float_literal,
+        char,
         int: Int,
         f32,
         f64,
@@ -97,7 +98,7 @@ pub const Type = union(enum) {
                         try writer.print(", ", .{});
                     }
                 }
-                try writer.print(") {f}", .{t.@"return"});
+                try writer.print(") -> {f}", .{t.@"return"});
             },
             .primitive => |t| {
                 if (t == .int) {
@@ -122,5 +123,41 @@ pub const Type = union(enum) {
             },
             else => false,
         };
+    }
+
+    pub fn isInteger(ty: Type) bool {
+        if (ty != .primitive) return false;
+        return ty.primitive == .int or ty.primitive == .int_literal;
+    }
+
+    pub fn isFloat(ty: Type) bool {
+        if (ty != .primitive) return false;
+        const prim = ty.primitive;
+        return prim == .float_literal
+            or prim == .f32
+            or prim == .f64
+            or prim == .f80
+            or prim == .f128;
+    }
+
+    pub fn isNumericLiteral(ty: Type) bool {
+        if (ty != .primitive) return false;
+        if (ty.primitive == .int_literal) return true;
+        if (ty.primitive == .float_literal) return true;
+        return false;
+    }
+
+    pub fn isConcreteNumeric(ty: Type) bool {
+        if (ty != .primitive) return false;
+        const prim = ty.primitive;
+        return prim == .int
+            or prim == .f32
+            or prim == .f64
+            or prim == .f80
+            or prim == .f128;
+    }
+
+    pub fn isNumeric(ty: Type) bool {
+        return ty.isInteger() or ty.isNumeric();
     }
 };
