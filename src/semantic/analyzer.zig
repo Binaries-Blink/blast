@@ -30,6 +30,7 @@ pub const Error = error {
     InvalidUnaryOperand,
     InvalidBinaryOperand,
     NonNumericHint,
+    ExpectedComptimeValue,
     OutOfMemory,
 };
 
@@ -58,6 +59,10 @@ const ExprRes = struct {
     ///
     /// `arr[i] = 0`
     lvalue: bool = false,
+    /// if the result is something that can be
+    /// fully known at compile time, and is thus
+    /// valid for assignment to a constant
+    constant: bool = false
 };
 
 pub fn init(alloc: std.mem.Allocator) !Self {
@@ -118,8 +123,12 @@ fn analyseTop(self: *Self, node: *AstNode) Error!void {
 /// completely analyze the given node, traversing any and all contained scopes
 fn analyzeFull(self: *Self, node: *AstNode, ctx: Ctx) Error!void {
     switch (node.*) {
-        .@"const" => |_| {
-            return Error.UnknownSymbol;
+        .@"const" => |n| {
+            const result = try self.analyzeAssignment(n.name, n.type_expr, n.value, ctx, .constant);
+            if (!result.constant) return Error.ExpectedComptimeValue;
+        },
+        .let => |n| {
+            _ = try self.analyzeAssignment(n.name, n.type_expr, n.value, ctx, .variable);
         },
         .@"fn" => |n| {
             var sym = self.global.get(n.name) orelse return Error.UnknownSymbol;
@@ -158,6 +167,43 @@ fn analyzeFull(self: *Self, node: *AstNode, ctx: Ctx) Error!void {
             return Error.UnknownSymbol;
         },
     }
+}
+
+fn analyzeAssignment(
+    self: *Self,
+    name: []const u8,
+    ty_expr: ?*AstNode,
+    value: *AstNode,
+    ctx: Ctx,
+    kind: Symbol.SymbolKind,
+) Error!ExprRes {
+    const hint = if (ty_expr) |te|
+        try self.resolveType(try readTypeExpr(self.alloc, te.ty_expr))
+    else null;
+
+    const expr_ctx = Ctx {
+        .scope = ctx.scope,
+        .expected_ty = hint,
+        .ret_ty = ctx.ret_ty,
+    };
+
+    const result = try self.analyzeExpr(&value.expr, expr_ctx);
+
+    const ty = if (hint) |h| blk: {
+        if (!canCoerce(result.ty, h)) return Error.TypeMismatch;
+        break :blk h;
+    } else result.ty;
+    
+    try ctx.scope.insert(name, Symbol {
+        .kind = kind,
+        .ty = ty,
+        .node = value,
+    });
+
+    return ExprRes {
+        .ty = ty,
+        .constant = result.constant,
+    };
 }
 
 /// performs full analysis of an expression node
