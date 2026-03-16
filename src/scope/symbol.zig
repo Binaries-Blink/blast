@@ -9,6 +9,8 @@ kind: SymbolKind,
 ty: *Type,
 /// the node corresponding to the symbol
 node: *AstNode,
+/// if the value of the symbol is compile time known
+constant: bool = false,
 
 pub const SymbolKind = enum(u8) {
     constant,

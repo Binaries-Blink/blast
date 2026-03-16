@@ -198,6 +198,7 @@ fn analyzeAssignment(
         .kind = kind,
         .ty = ty,
         .node = value,
+        .constant = kind == .constant,
     });
 
     return ExprRes {
@@ -244,14 +245,20 @@ fn analyzeLiteral(self: *Self, lit: AstNode.Expr.Literal, ctx: Ctx) Error!ExprRe
         .string => return Error.UnknownSymbol,
     };
 
-    return .{ .ty = ty };
+    return .{
+        .ty = ty,
+        .constant = true,
+    };
 }
 
 fn analyzeIdent(self: *Self, ident: AstNode.Expr.Ident, ctx: Ctx) Error!ExprRes {
     _ = self;
    const sym = ctx.scope.lookup(ident.name)
        orelse return Error.UndefinedSymbol;
-    return .{ .ty = sym.ty };
+    return .{
+        .ty = sym.ty,
+        .constant = sym.constant
+    };
 }
 
 fn analyzeUnary(self: *Self, op: AstNode.Expr.UnOp, ctx: Ctx) Error!ExprRes {
@@ -263,7 +270,11 @@ fn analyzeUnary(self: *Self, op: AstNode.Expr.UnOp, ctx: Ctx) Error!ExprRes {
         },
         else => return Error.InvalidUnaryOp,
     };
-    return .{ .ty = ty };
+
+    return .{
+        .ty = ty,
+        .constant = operand.constant,
+    };
 }
 
 fn analyzeBinary(self: *Self, op: AstNode.Expr.BinOp, ctx: Ctx) Error!ExprRes {
@@ -300,7 +311,10 @@ fn analyzeBinary(self: *Self, op: AstNode.Expr.BinOp, ctx: Ctx) Error!ExprRes {
         else => return Error.InvalidBinaryOp,
     };
 
-    return .{ .ty = ty };
+    return .{
+        .ty = ty,
+        .constant = lhs.constant & rhs.constant,
+    };
 }
 
 fn analyzeBlock(self: *Self, block: AstNode.Expr.Block, ctx: Ctx) Error!ExprRes {
