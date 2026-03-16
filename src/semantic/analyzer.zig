@@ -31,6 +31,10 @@ pub const Error = error {
     InvalidBinaryOperand,
     NonNumericHint,
     ExpectedComptimeValue,
+    NotCallable,
+    ArgCountMismatch,
+    ExpectedExpression,
+
     OutOfMemory,
 };
 
@@ -136,7 +140,7 @@ fn analyzeFull(self: *Self, node: *AstNode, ctx: Ctx) Error!void {
 
             // right now we pass in the scope defined by the context,
             // im hoping this should allow functions inside of blocks
-            var scope = try Scope.create(self.alloc, ctx.scope.*);
+            var scope = try Scope.create(self.alloc, ctx.scope);
             for (n.params) |param| {
                 const ty = try self.resolveType(
                     try readTypeExpr(self.alloc, param.param.type_expr.ty_expr)
@@ -193,7 +197,7 @@ fn analyzeAssignment(
         if (!canCoerce(result.ty, h)) return Error.TypeMismatch;
         break :blk h;
     } else result.ty;
-    
+
     try ctx.scope.insert(name, Symbol {
         .kind = kind,
         .ty = ty,
@@ -325,10 +329,34 @@ fn analyzeBlock(self: *Self, block: AstNode.Expr.Block, ctx: Ctx) Error!ExprRes 
 }
 
 fn analyzeCall(self: *Self, call: AstNode.Expr.FnCall, ctx: Ctx) Error!ExprRes {
-    _ = self;
-    _ = call;
-    _ = ctx;
-    return Error.UnknownSymbol;
+    // get the function type
+    const sym = ctx.scope.lookup(call.name) orelse return Error.UnknownSymbol;
+    const fn_ty = switch (sym.ty.*) {
+        .function => |f| f,
+        else => return Error.NotCallable
+    };
+
+    // todo : when we come back to improve compile errors,
+    //  we should report the expected and found count.
+    if (call.args.len != fn_ty.params.len) return Error.ArgCountMismatch;
+
+    for (call.args, fn_ty.params) |arg, param| {
+        if (arg.* != .expr) return Error.ExpectedExpression;
+        const result = try self.analyzeExpr(&arg.expr, .{
+            .scope = ctx.scope,
+            .expected_ty = param,
+            .ret_ty = ctx.ret_ty,
+        });
+
+        if (!canCoerce(result.ty, param)) return Error.TypeMismatch;
+    }
+
+    return ExprRes{
+        .ty = fn_ty.@"return",
+        // todo : if all args can be constant,
+        //  and expr body can be constant (only unknowns are args)
+        //  mark the function as constant
+    };
 }
 
 fn analyzeIf(self: *Self, if_expr: AstNode.Expr.If, ctx: Ctx) Error!ExprRes {

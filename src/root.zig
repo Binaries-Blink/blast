@@ -67,6 +67,6 @@ test "semantic" {
 
     var global = analyzer.global.*.symbols.iterator();
     while (global.next()) |entry| {
-        std.debug.print("{s} : {f}", .{entry.key_ptr.*, entry.value_ptr.*.ty});
+        std.debug.print("{s} : {f}\n", .{entry.key_ptr.*, entry.value_ptr.*.ty});
     }
 }
