@@ -60,7 +60,6 @@ test "semantic" {
     try analyzer.analyze(testAst);
 
     std.debug.print("{f}\n\n", .{testAst});
-
     std.debug.print("{f}\n", .{analyzer.table});
 
     var global = analyzer.global.*.symbols.iterator();
