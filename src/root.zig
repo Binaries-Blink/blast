@@ -9,8 +9,6 @@ pub const Type = @import("type/type.zig").Type;
 pub const Scope = @import("scope/scope.zig").Scope;
 pub const Symbol = @import("scope/symbol.zig").Symbol;
 
-pub const Parser = @import("IR/Parser.zig");
-
 test "semantic" {
     const std = @import("std");
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
@@ -58,10 +56,10 @@ test "semantic" {
     }});
 
     const testAst = try AstNode.create(alloc, .{ .root = @constCast(&root)});
-    std.debug.print("{f}\n", .{testAst.*});
-
     var analyzer = try Analyzer.init(alloc);
     try analyzer.analyze(testAst);
+
+    std.debug.print("{f}\n\n", .{testAst});
 
     std.debug.print("{f}\n", .{analyzer.table});
 

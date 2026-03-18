@@ -21,19 +21,27 @@ pub const Error = error {
     UndefinedSymbol,
     UnknownType,
     UnsupportedType,
+
     TypeMismatch,
-    ExpectedRootNode,
     DuplicateDefinition,
-    InferenceNotSupported,
     InvalidUnaryOp,
     InvalidBinaryOp,
     InvalidUnaryOperand,
     InvalidBinaryOperand,
+
+    InferenceNotSupported,
     NonNumericHint,
-    ExpectedComptimeValue,
     NotCallable,
     ArgCountMismatch,
+
+    ExpectedComptimeValue,
+    ExpectedRootNode,
     ExpectedExpression,
+    ExpectedLiteral,
+    ExpectedIdent,
+    ExpectedUnary,
+    ExpectedBinary,
+    ExpectedCall,
 
     OutOfMemory,
 };
@@ -87,15 +95,15 @@ pub fn init(alloc: std.mem.Allocator) !Self {
 ///
 /// expects the given node to be a root node
 pub fn analyze(self: *Self, node: *AstNode) Error!void {
-    if (node.* != .root) return Error.ExpectedRootNode;
+    if (node.*.kind != .root) return Error.ExpectedRootNode;
 
-    for (node.root) |n| {
+    for (node.kind.root) |n| {
         try self.analyseTop(n);
     }
 
     const ctx = Ctx { .scope = self.global };
 
-    for (node.root) |n| {
+    for (node.kind.root) |n| {
         try self.analyzeFull(n, ctx);
     }
 }
@@ -105,7 +113,7 @@ pub fn analyze(self: *Self, node: *AstNode) Error!void {
 fn analyseTop(self: *Self, node: *AstNode) Error!void {
     const ty = try readNodeType(self.alloc, node);
     var name: []const u8 = undefined;
-    const kind = switch (node.*) {
+    const kind = switch (node.*.kind) {
         .@"const" => |n| blk: {
             name = n.name;
             break :blk Symbol.SymbolKind.constant;
@@ -126,7 +134,7 @@ fn analyseTop(self: *Self, node: *AstNode) Error!void {
 
 /// completely analyze the given node, traversing any and all contained scopes
 fn analyzeFull(self: *Self, node: *AstNode, ctx: Ctx) Error!void {
-    switch (node.*) {
+    switch (node.*.kind) {
         .@"const" => |n| {
             const result = try self.analyzeAssignment(n.name, n.type_expr, n.value, ctx, .constant);
             if (!result.constant) return Error.ExpectedComptimeValue;
@@ -143,9 +151,15 @@ fn analyzeFull(self: *Self, node: *AstNode, ctx: Ctx) Error!void {
             var scope = try Scope.create(self.alloc, ctx.scope);
             for (n.params) |param| {
                 const ty = try self.resolveType(
-                    try readTypeExpr(self.alloc, param.param.type_expr.ty_expr)
+                    try readTypeExpr(self.alloc, param.kind.param.type_expr.kind.ty_expr)
                 );
-                try scope.insert(param.param.name, Symbol {
+
+                // todo : compile time known params,
+                //  will likely have to be specified
+                //  in the type expr
+                param.meta = .{ .ty = ty };
+
+                try scope.insert(param.kind.param.name, Symbol {
                     .kind = .parameter,
                     .ty = ty,
                     .node = param,
@@ -160,7 +174,7 @@ fn analyzeFull(self: *Self, node: *AstNode, ctx: Ctx) Error!void {
                 .expected_ty = ret_ty,
             };
 
-            const result = try self.analyzeExpr(&n.body.expr, body_ctx);
+            const result = try self.analyzeExpr(n.body, body_ctx);
             _ = result;
 
             // todo : if result type can coerce into return type, were good,
@@ -173,6 +187,14 @@ fn analyzeFull(self: *Self, node: *AstNode, ctx: Ctx) Error!void {
     }
 }
 
+/// analysis of variable and constant assignment, this is only to be used for const and let statements
+/// such as:
+///
+/// let x = 10;
+///
+/// const pi = 3.14;
+///
+/// assignment expressions like x = 10 are simply handled as expressions
 fn analyzeAssignment(
     self: *Self,
     name: []const u8,
@@ -181,8 +203,9 @@ fn analyzeAssignment(
     ctx: Ctx,
     kind: Symbol.SymbolKind,
 ) Error!ExprRes {
+    // todo : assignment based metadata
     const hint = if (ty_expr) |te|
-        try self.resolveType(try readTypeExpr(self.alloc, te.ty_expr))
+        try self.resolveType(try readTypeExpr(self.alloc, te.kind.ty_expr))
     else null;
 
     const expr_ctx = Ctx {
@@ -191,7 +214,7 @@ fn analyzeAssignment(
         .ret_ty = ctx.ret_ty,
     };
 
-    const result = try self.analyzeExpr(&value.expr, expr_ctx);
+    const result = try self.analyzeExpr(value, expr_ctx);
 
     const ty = if (hint) |h| blk: {
         if (!canCoerce(result.ty, h)) return Error.TypeMismatch;
@@ -212,21 +235,25 @@ fn analyzeAssignment(
 }
 
 /// performs full analysis of an expression node
-fn analyzeExpr(self: *Self, expr: *AstNode.Expr, ctx: Ctx) Error!ExprRes {
+fn analyzeExpr(self: *Self, expr: *AstNode, ctx: Ctx) Error!ExprRes {
     // todo : when analyzing an expr,
     //  build new context in the function that calls the analysis
-    return switch(expr.*) {
-        .literal => |lit| self.analyzeLiteral(lit, ctx),
-        .ident   => |id|  self.analyzeIdent(id, ctx),
-        .unary   => |un|  self.analyzeUnary(un, ctx),
-        .binary  => |bi|  self.analyzeBinary(bi, ctx),
-        .block   => |blk| self.analyzeBlock(blk, ctx),
-        .call    => |ca|  self.analyzeCall(ca, ctx),
-        .@"if"   => |i|   self.analyzeIf(i, ctx),
+    if (expr.kind != .expr) return Error.ExpectedExpression;
+    return switch(expr.*.kind.expr) {
+        .literal => self.analyzeLiteral(expr, ctx),
+        .ident   => self.analyzeIdent(expr, ctx),
+        .unary   => self.analyzeUnary(expr, ctx),
+        .binary  => self.analyzeBinary(expr, ctx),
+        .block   => self.analyzeBlock(expr, ctx),
+        .call    => self.analyzeCall(expr, ctx),
+        .@"if"   => self.analyzeIf(expr, ctx),
     };
 }
 
-fn analyzeLiteral(self: *Self, lit: AstNode.Expr.Literal, ctx: Ctx) Error!ExprRes {
+fn analyzeLiteral(self: *Self, node: *AstNode, ctx: Ctx) Error!ExprRes {
+    if (node.kind != .expr or node.kind.expr != .literal) return Error.ExpectedLiteral;
+    const lit = node.kind.expr.literal;
+
     const ty = switch (lit.kind) {
         .numeric => blk: {
             const integer = std.mem.indexOfScalar(u8, lit.val, '.') == null;
@@ -249,24 +276,39 @@ fn analyzeLiteral(self: *Self, lit: AstNode.Expr.Literal, ctx: Ctx) Error!ExprRe
         .string => return Error.UnknownSymbol,
     };
 
+    node.meta = .{
+        .constant = true,
+        .ty = ty,
+    };
+
     return .{
         .ty = ty,
         .constant = true,
     };
 }
 
-fn analyzeIdent(self: *Self, ident: AstNode.Expr.Ident, ctx: Ctx) Error!ExprRes {
+fn analyzeIdent(self: *Self, node: *AstNode, ctx: Ctx) Error!ExprRes {
     _ = self;
-   const sym = ctx.scope.lookup(ident.name)
-       orelse return Error.UndefinedSymbol;
+    if (node.kind != .expr or node.kind.expr != .ident) return Error.ExpectedIdent;
+    const ident = node.kind.expr.ident;
+    const sym = ctx.scope.lookup(ident.name) orelse return Error.UndefinedSymbol;
+
+    node.meta = .{
+        .ty = sym.ty,
+        .constant = sym.constant,
+    };
+
     return .{
         .ty = sym.ty,
         .constant = sym.constant
     };
 }
 
-fn analyzeUnary(self: *Self, op: AstNode.Expr.UnOp, ctx: Ctx) Error!ExprRes {
-    const operand = try self.analyzeExpr(&op.operand.expr, ctx);
+fn analyzeUnary(self: *Self, node: *AstNode, ctx: Ctx) Error!ExprRes {
+    if (node.kind != .expr or node.kind.expr != .unary) return Error.ExpectedUnary;
+    const op = node.kind.expr.unary;
+
+    const operand = try self.analyzeExpr(op.operand, ctx);
     const ty = switch (op.op) {
         .Sub => blk: {
             if (!operand.ty.isNumeric()) return Error.InvalidUnaryOperand;
@@ -275,15 +317,23 @@ fn analyzeUnary(self: *Self, op: AstNode.Expr.UnOp, ctx: Ctx) Error!ExprRes {
         else => return Error.InvalidUnaryOp,
     };
 
+    node.meta = .{
+        .ty = ty,
+        .constant = operand.constant,
+    };
+
     return .{
         .ty = ty,
         .constant = operand.constant,
     };
 }
 
-fn analyzeBinary(self: *Self, op: AstNode.Expr.BinOp, ctx: Ctx) Error!ExprRes {
-    const lhs = try self.analyzeExpr(&op.left.expr, ctx);
-    const rhs = try self.analyzeExpr(&op.right.expr, .{
+fn analyzeBinary(self: *Self, node: *AstNode, ctx: Ctx) Error!ExprRes {
+    if (node.kind != .expr or node.kind.expr != .binary) return Error.ExpectedBinary;
+    const op = node.kind.expr.binary;
+
+    const lhs = try self.analyzeExpr(op.left, ctx);
+    const rhs = try self.analyzeExpr(op.right, .{
         .scope = ctx.scope,
         .ret_ty = ctx.ret_ty,
         .expected_ty = lhs.ty,
@@ -315,20 +365,28 @@ fn analyzeBinary(self: *Self, op: AstNode.Expr.BinOp, ctx: Ctx) Error!ExprRes {
         else => return Error.InvalidBinaryOp,
     };
 
+    node.meta = .{
+        .ty = ty,
+        .constant = lhs.constant & rhs.constant,
+    };
+
     return .{
         .ty = ty,
         .constant = lhs.constant & rhs.constant,
     };
 }
 
-fn analyzeBlock(self: *Self, block: AstNode.Expr.Block, ctx: Ctx) Error!ExprRes {
+fn analyzeBlock(self: *Self, block: *AstNode, ctx: Ctx) Error!ExprRes {
     _ = self;
     _ = block;
     _ = ctx;
     return Error.UnknownSymbol;
 }
 
-fn analyzeCall(self: *Self, call: AstNode.Expr.FnCall, ctx: Ctx) Error!ExprRes {
+fn analyzeCall(self: *Self, node: *AstNode, ctx: Ctx) Error!ExprRes {
+    if (node.kind != .expr or node.kind.expr != .call) return Error.ExpectedCall;
+    const call = node.kind.expr.call;
+
     // get the function type
     const sym = ctx.scope.lookup(call.name) orelse return Error.UnknownSymbol;
     const fn_ty = switch (sym.ty.*) {
@@ -341,8 +399,7 @@ fn analyzeCall(self: *Self, call: AstNode.Expr.FnCall, ctx: Ctx) Error!ExprRes {
     if (call.args.len != fn_ty.params.len) return Error.ArgCountMismatch;
 
     for (call.args, fn_ty.params) |arg, param| {
-        if (arg.* != .expr) return Error.ExpectedExpression;
-        const result = try self.analyzeExpr(&arg.expr, .{
+        const result = try self.analyzeExpr(arg, .{
             .scope = ctx.scope,
             .expected_ty = param,
             .ret_ty = ctx.ret_ty,
@@ -350,6 +407,10 @@ fn analyzeCall(self: *Self, call: AstNode.Expr.FnCall, ctx: Ctx) Error!ExprRes {
 
         if (!canCoerce(result.ty, param)) return Error.TypeMismatch;
     }
+
+    node.meta = .{
+        .ty = fn_ty.@"return",
+    };
 
     return ExprRes{
         .ty = fn_ty.@"return",
@@ -359,7 +420,7 @@ fn analyzeCall(self: *Self, call: AstNode.Expr.FnCall, ctx: Ctx) Error!ExprRes {
     };
 }
 
-fn analyzeIf(self: *Self, if_expr: AstNode.Expr.If, ctx: Ctx) Error!ExprRes {
+fn analyzeIf(self: *Self, if_expr: *AstNode, ctx: Ctx) Error!ExprRes {
     _ = self;
     _ = if_expr;
     _ = ctx;
@@ -386,6 +447,8 @@ fn resolveType(self: *Self, ty: *Type) Error!*Type {
         },
         .unresolved => |un| switch (un) {
             .named => |n| {
+                // todo : more general type from name function
+                //  when we add structs and stuff.
                 if (self.table.primitiveFromName(n.name)) |p| {
                     return p;
                 }
@@ -420,13 +483,13 @@ fn unifyTypes(a: *Type, b: *Type) ?*Type {
 }
 
 fn inferType(self: *Self, node: *AstNode) Error!*Type {
-    switch (node.*) {
+    switch (node.*.kind) {
         .expr => |*e| return try self.inferExprType(e),
         else => return Error.InferenceNotSupported,
     }
 }
 
-fn inferExprType(self: *Self, expr: *AstNode.Expr) Error!*Type {
+fn inferExprType(self: *Self, expr: *AstNode) Error!*Type {
     _ = self;
     return switch (expr.*) {
         .literal => Error.UnKnownSymbol,

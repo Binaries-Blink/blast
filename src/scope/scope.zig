@@ -22,6 +22,7 @@ pub fn insert(self: *Scope, name: []const u8, symbol: Symbol) !void {
     }
 }
 
+/// create a new scope, with the scope provided set as its parent
 pub fn create(alloc: std.mem.Allocator, scope: *Scope) !*Scope {
     const ptr = try alloc.create(Scope);
     ptr.* = Scope{
