@@ -215,6 +215,16 @@ pub const Meta = struct {
     ty: *Type,
     /// true when a node is known or can be evaluated at compile time
     constant: bool = false,
+    /// false if an expression does not return
+    ///
+    /// basically the same as `fn() -> !` in rust
+    returns: bool = true,
+    /// true if the expression returns an lvalue
+    ///
+    /// will be useful for things like indexing
+    ///
+    /// `arr[i] = 0`
+    lvalue: bool = false,
 
     pub fn format(self: Meta, writer: *std.io.Writer) !void {
         if (self.constant) {

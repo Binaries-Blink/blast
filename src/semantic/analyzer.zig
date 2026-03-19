@@ -1,5 +1,6 @@
 const std = @import("std");
 const AstNode = @import("../ast.zig").AstNode;
+const Meta = @import("../ast.zig").Meta;
 const TypeTable = @import("../type/table.zig").TypeTable;
 const Type = @import("../type/type.zig").Type;
 const Scope = @import("../scope/scope.zig").Scope;
@@ -42,6 +43,8 @@ pub const Error = error {
     ExpectedUnary,
     ExpectedBinary,
     ExpectedCall,
+    ExpectedIf,
+    ExpectedBlock,
 
     OutOfMemory,
 };
@@ -55,26 +58,6 @@ const Ctx = struct {
     ret_ty: ?*Type = null,
     /// hint for what type is expected to be produced, null if unknown
     expected_ty: ?*Type = null,
-};
-
-/// context produced when evaluating an expression
-const ExprRes = struct {
-    /// the type of this expression
-    ty: *Type,
-    /// false if an expression does not return
-    ///
-    /// basically the same as `fn() -> !` in rust
-    returns: bool = true,
-    /// true if the expression returns an lvalue
-    ///
-    /// will be useful for things like indexing
-    ///
-    /// `arr[i] = 0`
-    lvalue: bool = false,
-    /// if the result is something that can be
-    /// fully known at compile time, and is thus
-    /// valid for assignment to a constant
-    constant: bool = false
 };
 
 pub fn init(alloc: std.mem.Allocator) !Self {
@@ -180,9 +163,9 @@ fn analyzeFull(self: *Self, node: *AstNode, ctx: Ctx) Error!void {
             // todo : if result type can coerce into return type, were good,
             //  else panic and freak out and lose your mind and crash and burn
         },
-        else => |n| {
-            std.debug.print("todo : {s}\n", .{@tagName(n)});
-            return Error.UnknownSymbol;
+        // assume any other node is an expression
+        else => {
+            _ = try self.analyzeExpr(node, ctx);
         },
     }
 }
@@ -202,7 +185,7 @@ fn analyzeAssignment(
     value: *AstNode,
     ctx: Ctx,
     kind: Symbol.SymbolKind,
-) Error!ExprRes {
+) Error!Meta {
     // todo : assignment based metadata
     const hint = if (ty_expr) |te|
         try self.resolveType(try readTypeExpr(self.alloc, te.kind.ty_expr))
@@ -228,14 +211,14 @@ fn analyzeAssignment(
         .constant = kind == .constant,
     });
 
-    return ExprRes {
+    return Meta {
         .ty = ty,
         .constant = result.constant,
     };
 }
 
 /// performs full analysis of an expression node
-fn analyzeExpr(self: *Self, expr: *AstNode, ctx: Ctx) Error!ExprRes {
+fn analyzeExpr(self: *Self, expr: *AstNode, ctx: Ctx) Error!Meta {
     // todo : when analyzing an expr,
     //  build new context in the function that calls the analysis
     if (expr.kind != .expr) return Error.ExpectedExpression;
@@ -250,7 +233,7 @@ fn analyzeExpr(self: *Self, expr: *AstNode, ctx: Ctx) Error!ExprRes {
     };
 }
 
-fn analyzeLiteral(self: *Self, node: *AstNode, ctx: Ctx) Error!ExprRes {
+fn analyzeLiteral(self: *Self, node: *AstNode, ctx: Ctx) Error!Meta {
     if (node.kind != .expr or node.kind.expr != .literal) return Error.ExpectedLiteral;
     const lit = node.kind.expr.literal;
 
@@ -276,35 +259,29 @@ fn analyzeLiteral(self: *Self, node: *AstNode, ctx: Ctx) Error!ExprRes {
         .string => return Error.UnknownSymbol,
     };
 
-    node.meta = .{
+    const meta = Meta {
         .constant = true,
         .ty = ty,
     };
 
-    return .{
-        .ty = ty,
-        .constant = true,
-    };
+    node.meta = meta;
+    return meta;
 }
 
-fn analyzeIdent(self: *Self, node: *AstNode, ctx: Ctx) Error!ExprRes {
+fn analyzeIdent(self: *Self, node: *AstNode, ctx: Ctx) Error!Meta {
     _ = self;
     if (node.kind != .expr or node.kind.expr != .ident) return Error.ExpectedIdent;
     const ident = node.kind.expr.ident;
     const sym = ctx.scope.lookup(ident.name) orelse return Error.UndefinedSymbol;
-
-    node.meta = .{
-        .ty = sym.ty,
-        .constant = sym.constant,
-    };
-
-    return .{
+    const meta = Meta {
         .ty = sym.ty,
         .constant = sym.constant
     };
+    node.meta = meta;
+    return meta;
 }
 
-fn analyzeUnary(self: *Self, node: *AstNode, ctx: Ctx) Error!ExprRes {
+fn analyzeUnary(self: *Self, node: *AstNode, ctx: Ctx) Error!Meta {
     if (node.kind != .expr or node.kind.expr != .unary) return Error.ExpectedUnary;
     const op = node.kind.expr.unary;
 
@@ -317,18 +294,16 @@ fn analyzeUnary(self: *Self, node: *AstNode, ctx: Ctx) Error!ExprRes {
         else => return Error.InvalidUnaryOp,
     };
 
-    node.meta = .{
+    const meta = Meta {
         .ty = ty,
         .constant = operand.constant,
     };
 
-    return .{
-        .ty = ty,
-        .constant = operand.constant,
-    };
+    node.meta = meta;
+    return meta;
 }
 
-fn analyzeBinary(self: *Self, node: *AstNode, ctx: Ctx) Error!ExprRes {
+fn analyzeBinary(self: *Self, node: *AstNode, ctx: Ctx) Error!Meta {
     if (node.kind != .expr or node.kind.expr != .binary) return Error.ExpectedBinary;
     const op = node.kind.expr.binary;
 
@@ -365,25 +340,65 @@ fn analyzeBinary(self: *Self, node: *AstNode, ctx: Ctx) Error!ExprRes {
         else => return Error.InvalidBinaryOp,
     };
 
-    node.meta = .{
+    const meta = Meta {
         .ty = ty,
         .constant = lhs.constant & rhs.constant,
     };
 
-    return .{
-        .ty = ty,
-        .constant = lhs.constant & rhs.constant,
+    node.meta = meta;
+    return meta;
+}
+
+fn analyzeBlock(self: *Self, node: *AstNode, ctx: Ctx) Error!Meta {
+    if (node.kind != .expr or node.kind.expr != .block) return Error.ExpectedBlock;
+    const block = node.kind.expr.block;
+    const void_ty = self.table.get(.{ .primitive = .void });
+
+    if (block.contents.len == 0) {
+        const meta = Meta {
+            .ty = void_ty,
+            .constant = true,
+        };
+
+        node.meta = meta;
+        return meta;
+    }
+
+    const child_scope = try Scope.create(self.alloc, ctx.scope);
+    const child_ctx = Ctx {
+        .scope = child_scope,
+        .ret_ty = ctx.ret_ty,
+    };
+
+    for (block.contents[0..block.contents.len - 1]) |item| {
+        try self.analyzeFull(item, child_ctx);
+    }
+
+    const last = block.contents[block.contents.len - 1];
+    return switch (last.kind) {
+        .expr => blk: {
+            const end_ctx = Ctx {
+                .scope = child_scope,
+                .ret_ty = ctx.ret_ty,
+                .expected_ty = ctx.expected_ty,
+            };
+            break :blk try self.analyzeExpr(last, end_ctx);
+        },
+        else => blk: {
+            try self.analyzeFull(last, child_ctx);
+            const meta = Meta {
+                .ty = void_ty,
+                // todo : this still could be const,
+                //  we might want to rework analyzeFull
+                //  to also return meta
+            };
+            node.meta = meta;
+            break :blk meta;
+        }
     };
 }
 
-fn analyzeBlock(self: *Self, block: *AstNode, ctx: Ctx) Error!ExprRes {
-    _ = self;
-    _ = block;
-    _ = ctx;
-    return Error.UnknownSymbol;
-}
-
-fn analyzeCall(self: *Self, node: *AstNode, ctx: Ctx) Error!ExprRes {
+fn analyzeCall(self: *Self, node: *AstNode, ctx: Ctx) Error!Meta {
     if (node.kind != .expr or node.kind.expr != .call) return Error.ExpectedCall;
     const call = node.kind.expr.call;
 
@@ -408,23 +423,52 @@ fn analyzeCall(self: *Self, node: *AstNode, ctx: Ctx) Error!ExprRes {
         if (!canCoerce(result.ty, param)) return Error.TypeMismatch;
     }
 
-    node.meta = .{
-        .ty = fn_ty.@"return",
-    };
-
-    return ExprRes{
+    const meta = Meta {
         .ty = fn_ty.@"return",
         // todo : if all args can be constant,
         //  and expr body can be constant (only unknowns are args)
         //  mark the function as constant
     };
+
+    node.meta = meta;
+    return meta;
 }
 
-fn analyzeIf(self: *Self, if_expr: *AstNode, ctx: Ctx) Error!ExprRes {
-    _ = self;
-    _ = if_expr;
-    _ = ctx;
-    return Error.UnknownSymbol;
+fn analyzeIf(self: *Self, node: *AstNode, ctx: Ctx) Error!Meta {
+    if (node.kind != .expr or node.kind.expr != .@"if") return Error.ExpectedIf;
+    const if_expr = node.kind.expr.@"if";
+
+    _ = try self.analyzeExpr(if_expr.clause, .{
+        .scope = ctx.scope,
+        .ret_ty = ctx.ret_ty,
+        .expected_ty = self.table.get(.{ .primitive = .bool }),
+    });
+
+    const then_result = try self.analyzeExpr(if_expr.then, ctx);
+
+    if (if_expr.@"else") |eb| {
+        const else_result = try self.analyzeExpr(eb, ctx);
+        const ty = unifyTypes(then_result.ty, else_result.ty)
+            orelse return Error.TypeMismatch;
+
+        const meta = Meta {
+            .ty = ty,
+            .constant = then_result.constant & else_result.constant,
+        };
+
+        node.meta = meta;
+        return meta;
+    }
+
+    const ty = self.table.get(.{ .primitive = .void });
+
+    const meta = Meta {
+        .ty = ty,
+        .constant = then_result.constant,
+    };
+
+    node.meta = meta;
+    return meta;
 }
 
 /// resolve a type pointer to its canonical pointer via the table
