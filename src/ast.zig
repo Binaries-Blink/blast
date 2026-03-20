@@ -180,7 +180,7 @@ pub const AstNode = struct {
                 .expr => |e| {
                     try writeIndent(writer, indent);
                     switch (e) {
-                        .literal => |l| try writer.print("{s} " ++ Color.green ++ " {s}" ++ Color.reset, .{ @tagName(l.kind), l.val }),
+                        .literal => |l| try writer.print("{s} " ++ Color.green ++ "{s}" ++ Color.reset, .{ @tagName(l.kind), l.val }),
                         .ident => |i| try writer.print(Color.yellow ++ "{s}" ++ Color.reset, .{i.name}),
                         .call => |c| {
                             try writer.print(Color.yellow ++ "{s}" ++ Color.reset ++ "(", .{c.name});
@@ -192,8 +192,8 @@ pub const AstNode = struct {
                             }
                             try writer.print(")", .{});
                         },
-                        .unary => |u| try writer.print("{s}({f})", .{ @tagName(u.op), u.operand }),
-                        .binary => |b| try writer.print("{s}({f}, {f})", .{ @tagName(b.op), b.left, b.right }),
+                        .unary => |u| try writer.print(Color.red ++ "{s}" ++ Color.reset ++ "({f})", .{ @tagName(u.op), u.operand }),
+                        .binary => |b| try writer.print(Color.red ++ "{s}" ++ Color.reset ++ "({f}, {f})", .{ @tagName(b.op), b.left, b.right }),
                         else => try writer.print("TODO : FORMAT {s} EXPR", .{@tagName(e)}),
                     }
                 },
