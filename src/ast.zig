@@ -125,34 +125,42 @@ pub const AstNode = struct {
         fn formatIndented(self: *const NodeKind, writer: *std.io.Writer, indent: usize) !void {
             switch (self.*) {
                 .root => |nodes| {
+                    try writer.writeByte('\n');
                     for (nodes) |node| {
-                        try node.kind.formatIndented(writer, indent);
+                        try node.kind.formatIndented(writer, indent + 1);
                         try writer.writeByte('\n');
                     }
                 },
                 .@"const" => |n| {
                     try writeIndent(writer, indent);
+                    try writer.print(Color.red ++ "const " ++ Color.reset, .{});
                     if (n.type_expr) |t| {
-                        try writer.print("const {f} {s} = {f}", .{ t, n.name, n.value });
+                        try writer.print("{f} " ++ Color.yellow ++ "{s}" ++ Color.reset ++ " = {f}", .{ t, n.name, n.value });
                     } else {
-                        try writer.print("const {s} = {f}", .{ n.name, n.value });
+                        try writer.print(Color.yellow ++ "{s}" ++ Color.reset ++ " = {f}", .{ n.name, n.value });
                     }
                 },
                 .let => |n| {
                     try writeIndent(writer, indent);
+                    try writer.print(Color.red ++ "let " ++ Color.reset, .{});
                     if (n.type_expr) |t| {
-                        try writer.print("let {f} {s} = {f}", .{ t, n.name, n.value });
+                        try writer.print("{f} " ++ Color.yellow ++ "{s}" ++ Color.reset ++ " = {f}", .{ t, n.name, n.value });
                     } else {
-                        try writer.print("let {s} = {f}", .{ n.name, n.value });
+                        try writer.print(Color.yellow ++ "{s}" ++ Color.reset ++ " = {f}", .{ n.name, n.value });
                     }
                 },
                 .ret => |n| {
                     try writeIndent(writer, indent);
-                    try writer.print("ret {f}", .{n.value});
+                    try writer.print(Color.red ++ "ret " ++ Color.reset, .{});
+                    try writer.print("{f}", .{n.value});
                 },
                 .@"fn" => |n| {
                     try writeIndent(writer, indent);
-                    try writer.print("{s} :: fn(", .{n.name});
+                    try writer.print(
+                        Color.yellow ++ "{s}" ++ Color.reset ++ " :: "
+                            ++ Color.red ++ "fn" ++ Color.reset ++ "(",
+                        .{n.name}
+                    );
                     for (n.params, 0..) |param, i| {
                         try writer.print("{f}", .{param});
                         if (i != n.params.len - 1) try writer.print(", ", .{});
@@ -161,19 +169,21 @@ pub const AstNode = struct {
                 },
                 .param => |n| {
                     try writeIndent(writer, indent);
-                    try writer.print("{s}: {f}", .{ n.name, n.type_expr });
+                    try writer.print(Color.yellow ++ "{s}" ++ Color.reset ++ ": {f}", .{ n.name, n.type_expr });
                 },
                 .ty_expr => |n| {
+                    try writer.print("{s}", .{Color.magenta});
                     if (n.nullable) try writer.print("?", .{});
                     try writer.print("{s}", .{n.name});
+                    try writer.print("{s}", .{Color.reset});
                 },
                 .expr => |e| {
                     try writeIndent(writer, indent);
                     switch (e) {
-                        .literal => |l| try writer.print("{s} {s}", .{ @tagName(l.kind), l.val }),
-                        .ident => |i| try writer.print("{s}", .{i.name}),
+                        .literal => |l| try writer.print("{s} " ++ Color.green ++ " {s}" ++ Color.reset, .{ @tagName(l.kind), l.val }),
+                        .ident => |i| try writer.print(Color.yellow ++ "{s}" ++ Color.reset, .{i.name}),
                         .call => |c| {
-                            try writer.print("{s}(", .{c.name});
+                            try writer.print(Color.yellow ++ "{s}" ++ Color.reset ++ "(", .{c.name});
                             for (c.args, 0..) |arg, i| {
                                 try writer.print("{f}", .{arg});
                                 if (i != c.args.len - 1) {
@@ -192,12 +202,51 @@ pub const AstNode = struct {
         }
     };
 
+    const Color = struct {
+        const reset   = "\x1b[0m";
+        const bold    = "\x1b[1m";
+        const dim     = "\x1b[2m";
+
+        const red     = "\x1b[31m";
+        const green   = "\x1b[32m";
+        const yellow  = "\x1b[33m";
+        const blue    = "\x1b[34m";
+        const magenta = "\x1b[35m";
+        const cyan    = "\x1b[36m";
+        const white   = "\x1b[37m";
+    };
+
+    const bracket_colors = [_][]const u8{
+        Color.yellow,
+        Color.cyan,
+        Color.magenta,
+        Color.green,
+        Color.blue,
+        Color.red,
+    };
+
     pub fn format(self: *const AstNode, writer: *std.io.Writer) !void {
+        if (self.kind == .root) {
+            try writer.print("root", .{});
+
+            if (self.meta) |m| {
+                try writer.print(Color.reset ++ " | " ++ Color.blue ++ "{f}" ++ Color.reset, .{m});
+            } else {
+                try writer.print(Color.dim ++ " | null" ++ Color.reset, .{});
+            }
+
+            try self.kind.formatIndented(writer, 0);
+            return;
+        }
+
         try writer.print("(", .{});
         try self.kind.formatIndented(writer, 0);
         if (self.meta) |m| {
-            try writer.print(" | {f})", .{m});
-        } else try writer.print(" | null)", .{});
+            try writer.print(Color.reset ++ " | " ++ Color.blue ++ "{f}" ++ Color.reset, .{m});
+        } else {
+            try writer.print(Color.dim ++ " | null" ++ Color.reset, .{});
+        }
+        try writer.print(")" ++ Color.reset, .{});
     }
 
     pub fn create(alloc: std.mem.Allocator, node: NodeKind) !*AstNode {
