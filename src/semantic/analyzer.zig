@@ -137,10 +137,16 @@ fn analyzeFull(self: *Self, node: *AstNode, ctx: Ctx) Error!void {
                     try readTypeExpr(self.alloc, param.kind.param.type_expr.kind.ty_expr)
                 );
 
+                const meta = Meta {
+                    .ty = ty
+                };
+
+
                 // todo : compile time known params,
                 //  will likely have to be specified
                 //  in the type expr
-                param.meta = .{ .ty = ty };
+                param.meta = meta;
+                param.kind.param.type_expr.meta = meta;
 
                 try scope.insert(param.kind.param.name, Symbol {
                     .kind = .parameter,
@@ -150,6 +156,13 @@ fn analyzeFull(self: *Self, node: *AstNode, ctx: Ctx) Error!void {
             }
 
             const ret_ty = sym.ty.function.@"return";
+
+            n.ret.meta = .{
+                // todo : more complex return type resolution,
+                //  similar to assignment this will likely come
+                //  as a result of improving the type system.
+                .ty = ret_ty,
+            };
 
             const body_ctx = Ctx {
                 .scope = scope,
@@ -187,9 +200,16 @@ fn analyzeAssignment(
     kind: Symbol.SymbolKind,
 ) Error!Meta {
     // todo : assignment based metadata
-    const hint = if (ty_expr) |te|
-        try self.resolveType(try readTypeExpr(self.alloc, te.kind.ty_expr))
-    else null;
+    const hint = if (ty_expr) |te| blk: {
+        const ty = try self.resolveType(try readTypeExpr(self.alloc, te.kind.ty_expr));
+        ty_expr.?.meta = .{
+            // todo : more complex resolution for the type expr,
+            //  this will likely come from an improved type system,
+            //  supporting pointers and whatnot.
+            .ty = ty,
+        };
+        break :blk ty;
+    }else null;
 
     const expr_ctx = Ctx {
         .scope = ctx.scope,
