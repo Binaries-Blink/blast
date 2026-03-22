@@ -194,6 +194,14 @@ pub const AstNode = struct {
                         },
                         .unary => |u| try writer.print(Color.red ++ "{s}" ++ Color.reset ++ "({f})", .{ @tagName(u.op), u.operand }),
                         .binary => |b| try writer.print(Color.red ++ "{s}" ++ Color.reset ++ "({f}, {f})", .{ @tagName(b.op), b.left, b.right }),
+                        .block => |b| {
+                            try writer.print("{{\n", .{});
+                            for (b.contents) |node| {
+                                try node.kind.formatIndented(writer, indent + 1);
+                                try writer.writeByte('\n');
+                            }
+                            try writer.print("}}", .{});
+                        },
                         else => try writer.print("TODO : FORMAT {s} EXPR", .{@tagName(e)}),
                     }
                 },
