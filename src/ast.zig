@@ -197,9 +197,10 @@ pub const AstNode = struct {
                         .block => |b| {
                             try writer.print("{{\n", .{});
                             for (b.contents) |node| {
-                                try node.kind.formatIndented(writer, indent + 1);
+                                try node.kind.formatIndented(writer, indent + 2);
                                 try writer.writeByte('\n');
                             }
+                            try writeIndent(writer, indent);
                             try writer.print("}}", .{});
                         },
                         else => try writer.print("TODO : FORMAT {s} EXPR", .{@tagName(e)}),
