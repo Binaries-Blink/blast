@@ -200,7 +200,7 @@ pub const AstNode = struct {
                                 try node.kind.formatIndented(writer, indent + 2);
                                 try writer.writeByte('\n');
                             }
-                            try writeIndent(writer, indent);
+                            try writeIndent(writer, indent + 1);
                             try writer.print("}}", .{});
                         },
                         else => try writer.print("TODO : FORMAT {s} EXPR", .{@tagName(e)}),
