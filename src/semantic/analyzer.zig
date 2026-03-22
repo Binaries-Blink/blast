@@ -46,6 +46,8 @@ pub const Error = error {
     ExpectedIf,
     ExpectedBlock,
 
+    ReturnNotExpected,
+
     OutOfMemory,
 };
 
@@ -175,6 +177,21 @@ fn analyzeFull(self: *Self, node: *AstNode, ctx: Ctx) Error!void {
 
             // todo : if result type can coerce into return type, were good,
             //  else panic and freak out and lose your mind and crash and burn
+        },
+        .ret => |n| {
+            const expected = ctx.ret_ty orelse return Error.ReturnNotExpected;
+
+            const result = try self.analyzeExpr(n.value, Ctx{
+                .expected_ty = expected,
+                .ret_ty = ctx.ret_ty,
+                .scope = ctx.scope,
+            });
+
+            if (!canCoerce(result.ty, expected)) return Error.TypeMismatch;
+
+            node.meta = result;
+
+            return;
         },
         // assume any other node is an expression
         else => {
